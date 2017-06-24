@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="plugin.audio.hearthis_at" name="Hearthis.at" version="0.0.1" provider-name="Eike Baran">
+  <requires>
+    <import addon="xbmc.python" version="2.24.0" />
+    <import addon="script.module.kodiswift" version="0.0.1" />
+    <import addon="script.module.simplesjson"/>
+  </requires>
+  <extension point="xbmc.python.pluginsource" library="addon.py">
+    <provides>audio</provides>
+  </extension>
+  <extension point="xbmc.addon.metadata">
+    <platform>all</platform>
+    <language>en</language>
+    <assets>
+        <icon>icon.png</icon>
+    </assets>
+    <summary lang="en">Summary for "Hearthis.at"</summary>
+    <description lang="en">Description for "Hearthis.at"</description>
+    <disclaimer lang="en">Disclaimer for "Hearthis.at"</disclaimer>
+  </extension>
+</addon>
