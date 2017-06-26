@@ -29,3 +29,11 @@ msgstr ""
 msgctxt "#30006"
 msgid "previous"
 msgstr ""
+
+msgctxt "#30007"
+msgid "Show artist"
+msgstr ""
+
+msgctxt "#30008"
+msgid "next"
+msgstr ""

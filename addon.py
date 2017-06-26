@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from kodiswift import Plugin
+import xbmcgui
 import cookielib, urllib2 
 import simplejson as json
 import copy
@@ -39,15 +40,17 @@ def main_menu():
 
     return items
 
-@plugin.route('/user/<user>')
-def show_user(user):
+@plugin.route('/user/<user>/<page>/<first>', name='show_user_first', options={'page': '1', 'first': True})
+@plugin.route('/user/<user>/<page>')
+def show_user(user, page, first=False):
     u = api_call(user)
-    tracks = api_call(user+'/?type=tracks')
+    results = api_call(add_pp('%s/?type=tracks' % (user), page))
+    pagination={'call': 'show_user', 'args':{'user': user, 'page': int(page)}}
     selectors = [
                     {'label': 'Playlists ('+str(u['playlist_count'])+')', 'path': plugin.url_for('show_users_playlists_firstpage', user=user)},
                     {'label': 'Likes ('+str(u['likes_count'])+')', 'path': plugin.url_for('show_users_likes_firstpage', user=user)}
                 ]
-    return selectors +  list_tracks(tracks)
+    return list_tracks(results, pagination, first, pre=selectors)
 
 @plugin.route('/playlist/<plink>')
 def play_playlist(plink):
@@ -117,7 +120,7 @@ def search_for(stype, skey, page, first=False):
     elif stype == 'user':
         items = [pn_button(pagination, -1)]
         for u in results:
-            items.append({'label': '%s (%s tracks)' % (u['username'], str(u['track_count'])), 'icon': u['avatar_url'], 'path': plugin.url_for('show_user', user=u['permalink'])})
+            items.append({'label': '%s (%s tracks)' % (u['username'], str(u['track_count'])), 'icon': u['avatar_url'], 'path': plugin.url_for('show_user_first', user=u['permalink'], page=1, first=True)})
         items += [pn_button(pagination, 1)]
         return items
 
@@ -151,6 +154,8 @@ def list_tracks(tracklist, pagination = None, first=False, pre=[], post=[]):
     items = pre
     items.append(pn_button(pagination, -1))
     for t in tracklist:
+        url = plugin.url_for('show_user_first', user=t['user']['permalink'], page=1, first=True)
+        plugin.log.info(url)
         items.append({
                 'label': '%s - %s' % (t['user']['username'], t['title']),
                 'icon': t['artwork_url'],
@@ -162,6 +167,7 @@ def list_tracks(tracklist, pagination = None, first=False, pre=[], post=[]):
                             'genre': t.get('genre', None),
                             'playcount': t.get('playback_count', None)
                          },
+                'context_menu': [( _('Show artist'), 'ActivateWindow(%d,%s)'% (xbmcgui.getCurrentWindowId(),url))],
                 'path': plugin.url_for('play_track', trackid=t['permalink'], user=t['user']['permalink']),
                 'is_playable': True
         })
