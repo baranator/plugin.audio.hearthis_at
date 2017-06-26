@@ -3,23 +3,23 @@ msgid ""
 msgstr ""
 
 msgctxt "#30000"
-msgid "Popular"
-msgstr ""
-
-msgctxt "#30001"
 msgid "Genres"
 msgstr ""
 
+msgctxt "#30001"
+msgid "Playlists"
+msgstr ""
+
 msgctxt "#30002"
-msgid "Recently added"
+msgid "Show artist"
 msgstr ""
 
 msgctxt "#30003"
-msgid "Search"
+msgid "Recently added"
 msgstr ""
 
 msgctxt "#30004"
-msgid "Search for tracks only"
+msgid "Search"
 msgstr ""
 
 msgctxt "#30005"
@@ -27,13 +27,21 @@ msgid "Search for artist only"
 msgstr ""
 
 msgctxt "#30006"
-msgid "previous"
+msgid "next"
 msgstr ""
 
 msgctxt "#30007"
-msgid "Show artist"
+msgid "Likes"
 msgstr ""
 
 msgctxt "#30008"
-msgid "next"
+msgid "Popular"
+msgstr ""
+
+msgctxt "#30009"
+msgid "Search for tracks only"
+msgstr ""
+
+msgctxt "#30010"
+msgid "previous"
 msgstr ""

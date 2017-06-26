@@ -21,3 +21,46 @@ msgstr ""
 # strings 32000 thru 32999 reserved for scripts
 # strings 33000 thru 33999 reserved for common strings used in add-ons
 
+msgctxt "#30000"
+msgid "Beliebt"
+msgstr "Beliebt"
+
+msgctxt "#30001"
+msgid "Genres"
+msgstr "Genres"
+
+msgctxt "#30002"
+msgid "Recently added"
+msgstr "Neu"
+
+msgctxt "#30003"
+msgid "Suche"
+msgstr "Suche"
+
+msgctxt "#30004"
+msgid "Search for tracks only"
+msgstr "Suche nur nach Musiktiteln"
+
+msgctxt "#30005"
+msgid "Search for artist only"
+msgstr "Suche nur nach Künstlern"
+
+msgctxt "#30006"
+msgid "previous"
+msgstr "vorherige"
+
+msgctxt "#30007"
+msgid "Show artist"
+msgstr "Zeige Künstler"
+
+msgctxt "#30008"
+msgid "next"
+msgstr "nächste"
+
+msgctxt "#30009"
+msgid "Playlists"
+msgstr "Wiedergabelisten"
+
+msgctxt "#30010"
+msgid "Likes"
+msgstr "Likes"
