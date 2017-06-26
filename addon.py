@@ -2,6 +2,8 @@
 from kodiswift import Plugin
 import cookielib, urllib2 
 import simplejson as json
+import copy
+from language import get_string as _
 
 plugin = Plugin()
 
@@ -10,7 +12,7 @@ PER_PAGE = 20
 
 def nextpage(url, length):
     if length >= PER_PAGE:
-        return [{'label': plugin.get_string(33039), 'path': url}]
+        return [{'label': _("previous"), 'path': url}]
     else:
         return []
 
@@ -29,10 +31,10 @@ def api_call(query):
 @plugin.route('/')
 def main_menu():
     items = [
-                {'label': plugin.get_string(33034), 'path': plugin.url_for('show_feed_firstpage',ftype='new')},
-                {'label': plugin.get_string(33033), 'path': plugin.url_for('show_feed_firstpage',ftype='popular')},
-                {'label': plugin.get_string(33035), 'path': plugin.url_for('show_genres')},
-                {'label': plugin.get_string(33036), 'path': plugin.url_for('search')}
+                {'label': _("Recently added"), 'path': plugin.url_for('show_feed_first', ftype='new', page=1, first=True)},
+                {'label': _("Popular"), 'path': plugin.url_for('show_feed_first', ftype='popular', page=1, first=True)},
+                {'label': _("Genres"), 'path': plugin.url_for('show_genres')},
+                {'label': _("Search"), 'path': plugin.url_for('search_first', skey='x', page=1, first=True)}
             ]
 
     return items
@@ -79,12 +81,78 @@ def show_genres():
     
     return items
 
+def pn_button(pagination, direction):
+    page = pagination['args']['page']
+    if pagination != None and (direction == 1 or page > 1):
+        args = copy.deepcopy(pagination['args'])
+        args['page'] += direction
+        lbl = '%s (%d - %d)' % ((_("next"), page*PER_PAGE+1,(page+1)*PER_PAGE) if direction == 1 else (_("previous"), (page-1)*PER_PAGE+1,page*PER_PAGE))
+        return {'label': lbl, 'path': plugin.url_for(pagination['call'], **args)}
+    else:
+        return None
 
-def list_tracks(tracklist):
-    items = []
+
+
+@plugin.route('/feeds/<ftype>/<page>/<first>', name='show_feed_first')
+@plugin.route('/feeds/<ftype>/<page>')
+def show_feed(ftype, page, first=False):
+    results = api_call(add_pp('feed/?type=%s' % (ftype), page))
+    pagination={'call': 'show_feed', 'args':{'ftype': ftype, 'page': int(page)}}
+    return list_tracks(results, pagination, first)
+
+@plugin.route('/genre/<genre>/<page>/<first>', name='show_genre_first')
+@plugin.route('/genre/<genre>/<page>')
+def show_genre(genre, page, first=False):
+    results = api_call(add_pp('categories/%s/' % (genre), page, sep='?'))
+    pagination={'call': 'show_genre', 'args':{'genre': genre, 'page': int(page)}}
+    return list_tracks(results, pagination, first)
+
+@plugin.route('/search_for/<stype>/<skey>/<page>/<first>', name='search_for_first')
+@plugin.route('/search_for/<stype>/<skey>/<page>')
+def search_for(stype, skey, page, first=False):
+    results = api_call(add_pp('search?t=%s&type=%s' % (skey, stype), page))
+    pagination={'call': 'search_for', 'args':{'stype': stype, 'skey': skey, 'page': int(page)}}
+    if stype == 'tracks':
+        return list_tracks(results, pagination, first)
+    elif stype == 'user':
+        items = [pn_button(pagination, -1)]
+        for u in results:
+            items.append({'label': '%s (%s tracks)' % (u['username'], str(u['track_count'])), 'icon': u['avatar_url'], 'path': plugin.url_for('show_user', user=u['permalink'])})
+        items += [pn_button(pagination, 1)]
+        return items
+
+#TODO: sometimes jumps out of plugin while browsing search results
+@plugin.route('/search/<skey>/<page>/<first>', name='search_first')
+@plugin.route('/search/<skey>/<page>')
+def search(skey, page, first=False):
+    if first:
+        kb = xbmc.Keyboard ('', _("Search"), False)
+        kb.doModal()
+        if kb.isConfirmed():
+            skey = kb.getText()
+        else:
+            return None
+    results = api_call(add_pp('search?t=%s/' % (skey), page))
+    selectors = [
+                        {'label': _("Search for artist only"), 'path': plugin.url_for('search_for_first', stype='user', skey=skey, page=1, first=True)},
+                        {'label': _("Search for tracks only"), 'path': plugin.url_for('search_for_first', stype='tracks', skey=skey, page=1, first=True)}
+                        ]
+    pagination={'call': 'search', 'args':{'skey': skey, 'page': int(page)}}
+    return list_tracks(results, pagination, first, pre = selectors)
+    
+   
+@plugin.route('/play/<user>/<trackid>')
+def play_track(user,trackid):
+    playurl='https://hearthis.at/'+user+'/'+trackid+'/listen'
+    plugin.log.info('Playing: %s'%playurl)
+    return plugin.set_resolved_url(playurl)   
+
+def list_tracks(tracklist, pagination = None, first=False, pre=[], post=[]):
+    items = pre
+    items.append(pn_button(pagination, -1))
     for t in tracklist:
         items.append({
-                'label': t['user']['username']+' - '+t['title']+'',
+                'label': '%s - %s' % (t['user']['username'], t['title']),
                 'icon': t['artwork_url'],
                 'thumbnail': t['artwork_url'],
                 'info': {
@@ -97,54 +165,20 @@ def list_tracks(tracklist):
                 'path': plugin.url_for('play_track', trackid=t['permalink'], user=t['user']['permalink']),
                 'is_playable': True
         })
-    return items
-
-@plugin.route('/feeds/<ftype>', name='show_feed_firstpage', options={'page': '1'})
-@plugin.route('/feeds/<ftype>/<page>')
-def show_feed(ftype, page):
-    feed = api_call('feed/?type=%s&page=%d&count=%d' % (ftype, int(page), PER_PAGE))
-    return list_tracks(feed) + nextpage(plugin.url_for('show_feed', ftype=ftype, page=int(page)+1), len(feed)) 
-
-@plugin.route('/genre/<genre>', name='show_genre_firstpage', options={'page': '1'})
-@plugin.route('/genre/<genre>/<page>')
-def show_genre(genre, page):
-    lgenre = api_call('categories/%s/?page=%d&count=%d' % (genre, int(page), PER_PAGE))
-    return list_tracks(lgenre) + nextpage(plugin.url_for('show_genre', genre=genre, page=int(page)+1), len(lgenre)) 
-
-
-@plugin.route('/play/<user>/<trackid>')
-def play_track(user,trackid):
-    #api_call('categories')
-    playurl='https://hearthis.at/'+user+'/'+trackid+'/listen'
-    plugin.log.info('Playing: %s'%playurl)
-    return plugin.set_resolved_url(playurl)
-
-@plugin.route('/search/<stype>/<skey>')
-def search_for(stype,skey):
-    results = api_call('search?t='+skey+'&type='+stype)
-    if stype == 'tracks':
-        return list_tracks(results)
-    elif stype == 'user':
-        items = []
-        for u in results:
-            items.append({'label': u['username']+' ('+str(u['track_count'])+' tracks)', 'icon': u['avatar_url'], 'path': plugin.url_for('show_user',user=u['permalink'])})
-        return items
-
-@plugin.route('/search/')
-def search():
-    kb = xbmc.Keyboard ('', plugin.get_string(33036), False)
-    kb.doModal()
-    if kb.isConfirmed():
-        text = kb.getText()
-        results = api_call('search?t='+text)
-        selectors = [
-                        {'label': plugin.get_string(33037), 'path': plugin.url_for('search_for', stype='user', skey=text)},
-                        {'label': plugin.get_string(33038), 'path': plugin.url_for('search_for', stype='tracks', skey=text)}
-                    ]
-        return selectors + list_tracks(results)
+    items = items + post
+    items.append(pn_button(pagination, 1))
+    
+    #only skip history if turning pages, not if opening first page initially
+    if pagination != None and not first:
+        ul=True
     else:
-        return None
-            
+        ul=False
+    
+    return plugin.finish(items, update_listing=ul)# if pagination != None else False)
+
+def add_pp(call, page, sep = '&'):
+    return '%s%spage=%d&count=%d' % (call, sep, int(page), PER_PAGE)
+
 
 if __name__ == '__main__':
     plugin.run()
