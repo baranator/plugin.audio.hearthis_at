@@ -12,11 +12,6 @@ plugin = Plugin()
 USER_AGENT = 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.3) Gecko/2008092417 Firefox/3.0.3'
 PER_PAGE = 15
 HEARTHIS = 'hearthis.at'
-def nextpage(url, length):
-    if length >= PER_PAGE:
-        return [{'label': _("previous"), 'path': url}]
-    else:
-        return []
 
 def api_call(query):
     api_base_url="https://api-v2.hearthis.at/"
@@ -38,7 +33,7 @@ def main_menu():
                 {'label': _("Recently added"), 'path': plugin.url_for('show_feed_first', ftype='new')},
                 {'label': _("Popular"), 'path': plugin.url_for('show_feed_first', ftype='popular')},
                 {'label': _("Genres"), 'path': plugin.url_for('show_genres')},
-                {'label': _("Search"), 'path': plugin.url_for('search_first', skey='x', page=1, first=True)}
+                {'label': _("Search"), 'path': plugin.url_for('search')}
             ]
 
     return plugin.finish(items)
@@ -48,6 +43,7 @@ def main_menu():
 def show_playlist(plink):
     plist = api_call('set/'+plink)
     return list_tracks(plist)
+
 
 @plugin.route('/user/<user>/playlists', name='show_users_playlists_first', options={'page': '1', 'first': 'True'})
 @plugin.route('/user/<user>/playlists/<page>')
@@ -119,31 +115,27 @@ def search_for(stype, skey, page, first=False):
     if stype == 'tracks':
         return list_tracks(results, pagination, first)
     elif stype == 'user':
-        items = [pn_button(pagination, -1)]
+        items = [pn_button(pagination, -1, len(results))]
         for u in results:
             items.append({'label': '%s (%s tracks)' % (u['username'], str(u['track_count'])), 'icon': u['avatar_url'], 'path': plugin.url_for('show_user_first', user=u['permalink'], page=1, first=True)})
-        items += [pn_button(pagination, 1)]
+        items += [pn_button(pagination, 1, len(results))]
         return items
 
 
 #TODO: sometimes jumps out of plugin while browsing search results
-@plugin.route('/search/<skey>/<page>/<first>', name='search_first', options={'page': '1', 'first': 'True', 'skey': None})
-@plugin.route('/search/<skey>/<page>')
-def search(skey, page, first=False):
-    if first:
-        kb = xbmc.Keyboard ('', _("Search"), False)
-        kb.doModal()
-        if kb.isConfirmed():
-            skey = kb.getText()
-        else:
-            return None
-    results = api_call(add_pp('search?t=%s' % (skey), page))
+@plugin.route('/search')
+def search():
+    kb = xbmc.Keyboard ('', _("Search"), False)
+    kb.doModal()
+    if kb.isConfirmed():
+        skey = kb.getText()
+    else:
+        return None
     selectors = [
                         {'label': _("Search for artist only"), 'path': plugin.url_for('search_for_first', stype='user', skey=skey, page=1, first='True')},
                         {'label': _("Search for tracks only"), 'path': plugin.url_for('search_for_first', stype='tracks', skey=skey, page=1, first='True')}
                 ]
-    pagination={'call': 'search', 'args':{'skey': skey, 'page': int(page)}}
-    return list_tracks(results, pagination, first, pre = selectors)
+    return plugin.finish(selectors)
     
    
 @plugin.route('/play/<user>/<trackid>')
@@ -162,7 +154,7 @@ def list_tracks(tracklist, pagination = None, first=False, pre=[], post=[]):
         dialogbox(_('No further elements to show'))
         return None
     items = pre
-    items.append(pn_button(pagination, -1))
+    items.append(pn_button(pagination, -1, len(tracklist)))
     for t in tracklist:
         url = plugin.url_for('show_user_first', user=t['user']['permalink'], page=1, first=True)
         plugin.log.info(url)
@@ -182,7 +174,7 @@ def list_tracks(tracklist, pagination = None, first=False, pre=[], post=[]):
                 'is_playable': True
         })
     items = items + post
-    items.append(pn_button(pagination, 1))
+    items.append(pn_button(pagination, 1, len(tracklist)))
     
     #only skip history if turning pages, not if opening first page initially
     if pagination != None and first != 'True':
@@ -192,13 +184,20 @@ def list_tracks(tracklist, pagination = None, first=False, pre=[], post=[]):
     return plugin.finish(items, update_listing=ul)
 
 
-def pn_button(pagination, direction):
+def pn_button(pagination, direction, length=PER_PAGE):
     page = pagination['args']['page']
-    if pagination != None and (direction == 1 or page > 1):
+    if pagination != None :
         args = copy.deepcopy(pagination['args'])
         args['page'] += direction
-        lbl = '[%s ...]' % ((_("next")) if direction == 1 else (_("previous")))
-        return {'label': lbl, 'path': plugin.url_for(pagination['call'], **args)}
+        if direction == -1:
+            if page <= 1:
+                return None
+            lbl=_("previous")
+        else:
+            if length < PER_PAGE:
+                return None
+            lbl=_("next")
+        return {'label': '[%s ...]' % (lbl), 'path': plugin.url_for(pagination['call'], **args)}
     else:
         return None
 
