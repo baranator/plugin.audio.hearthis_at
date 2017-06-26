@@ -45,3 +45,7 @@ msgstr ""
 msgctxt "#30010"
 msgid "previous"
 msgstr ""
+
+msgctxt "#30011"
+msgid "No further elements to show"
+msgstr ""

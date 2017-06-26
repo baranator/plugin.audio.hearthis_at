@@ -10,8 +10,8 @@ from language import get_string as _
 plugin = Plugin()
 
 USER_AGENT = 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.3) Gecko/2008092417 Firefox/3.0.3'
-PER_PAGE = 20
-
+PER_PAGE = 15
+HEARTHIS = 'hearthis.at'
 def nextpage(url, length):
     if length >= PER_PAGE:
         return [{'label': _("previous"), 'path': url}]
@@ -22,7 +22,9 @@ def api_call(query):
     api_base_url="https://api-v2.hearthis.at/"
     cj = cookielib.CookieJar()
     opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
-    request = urllib2.Request(api_base_url+query)
+    url = api_base_url+query
+    request = urllib2.Request(url)
+    plugin.log.info('api-call: %s'%url)
     request.add_header('User-Agent', USER_AGENT)
     response = opener.open(request)
     jsono = response.read()
@@ -135,7 +137,7 @@ def search(skey, page, first=False):
             skey = kb.getText()
         else:
             return None
-    results = api_call(add_pp('search?t=%s/' % (skey), page))
+    results = api_call(add_pp('search?t=%s' % (skey), page))
     selectors = [
                         {'label': _("Search for artist only"), 'path': plugin.url_for('search_for_first', stype='user', skey=skey, page=1, first='True')},
                         {'label': _("Search for tracks only"), 'path': plugin.url_for('search_for_first', stype='tracks', skey=skey, page=1, first='True')}
@@ -150,8 +152,13 @@ def play_track(user,trackid):
     plugin.log.info('Playing: %s'%playurl)
     return plugin.set_resolved_url(playurl)   
 
+def dialogbox(msg):
+    xbmc.executebuiltin('Notification(%s, %s)'%(HEARTHIS, msg))
 
 def list_tracks(tracklist, pagination = None, first=False, pre=[], post=[]):
+    if isinstance(tracklist, dict):
+        dialogbox(_('No further elements to show'))
+        return None
     items = pre
     items.append(pn_button(pagination, -1))
     for t in tracklist:
@@ -180,7 +187,6 @@ def list_tracks(tracklist, pagination = None, first=False, pre=[], post=[]):
         ul=True
     else:
         ul=False
-    
     return plugin.finish(items, update_listing=ul)
 
 
