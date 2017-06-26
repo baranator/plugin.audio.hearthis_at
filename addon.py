@@ -152,8 +152,10 @@ def play_track(user,trackid):
     plugin.log.info('Playing: %s'%playurl)
     return plugin.set_resolved_url(playurl)   
 
+
 def dialogbox(msg):
     xbmc.executebuiltin('Notification(%s, %s)'%(HEARTHIS, msg))
+
 
 def list_tracks(tracklist, pagination = None, first=False, pre=[], post=[]):
     if isinstance(tracklist, dict):
@@ -195,7 +197,7 @@ def pn_button(pagination, direction):
     if pagination != None and (direction == 1 or page > 1):
         args = copy.deepcopy(pagination['args'])
         args['page'] += direction
-        lbl = '%s (%d - %d)' % ((_("next"), page*PER_PAGE+1,(page+1)*PER_PAGE) if direction == 1 else (_("previous"), (page-1)*PER_PAGE+1,page*PER_PAGE))
+        lbl = '[%s ...]' % ((_("next")) if direction == 1 else (_("previous")))
         return {'label': lbl, 'path': plugin.url_for(pagination['call'], **args)}
     else:
         return None

@@ -15,7 +15,8 @@
         <icon>icon.png</icon>
     </assets>
     <summary lang="en">Summary for "Hearthis.at"</summary>
-    <description lang="en">Description for "Hearthis.at"</description>
+    <description lang="en">Hearthis.at is a online audio distribution platform that enables its users to upload, record, promote, and share their originally-created sounds. This addon provides the most important features to access that content.</description>
+    <description lang="de">Hearthis.at ist eine Online-Musikplattform, auf welcher Nutzer ihre Werke hochladen, aufnehmen, bewerben und teilen können. Dieses Addon erlaubt Zugriff auf die wichtigsten Funktionen der Plattform um diese Inhalte abzurufen.</description>
     <disclaimer lang="en">Disclaimer for "Hearthis.at"</disclaimer>
   </extension>
 </addon>
