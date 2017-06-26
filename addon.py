@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from kodiswift import Plugin
+from kodiswift import actions
 import xbmcgui
 import cookielib, urllib2 
 import simplejson as json
@@ -167,7 +168,7 @@ def list_tracks(tracklist, pagination = None, first=False, pre=[], post=[]):
                             'genre': t.get('genre', None),
                             'playcount': t.get('playback_count', None)
                          },
-                'context_menu': [( _('Show artist'), 'ActivateWindow(%d,%s)'% (xbmcgui.getCurrentWindowId(),url))],
+                'context_menu': [( _('Show artist'), actions.update_view(url))],
                 'path': plugin.url_for('play_track', trackid=t['permalink'], user=t['user']['permalink']),
                 'is_playable': True
         })
