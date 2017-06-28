@@ -64,3 +64,27 @@ msgstr "vorherige"
 msgctxt "#30011"
 msgid "No elements to show"
 msgstr "Keine Elemente gefunden"
+
+msgctxt "#30050"
+msgid "hearthis.at credentials"
+msgstr ""
+
+msgctxt "#30051"
+msgid "Email"
+msgstr "Emailadresse"
+
+msgctxt "#30052"
+msgid "Password"
+msgstr "Passwort"
+
+msgctxt "#30053"
+msgid "Elements per page"
+msgstr "Elemente pro Seite"
+
+msgctxt "#30054"
+msgid "Login at hearthis.at"
+msgstr "Bei hearthis.at einloggen"
+
+msgctxt "#30055"
+msgid "Login failed. Check your credentials!"
+msgstr "Login fehlgeschlagen. Überprüfe deine Zugangsdaten"

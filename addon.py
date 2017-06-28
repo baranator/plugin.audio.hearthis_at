@@ -14,6 +14,7 @@ PER_PAGE = 15
 HEARTHIS = 'hearthis.at'
 API_BASE_URL="https://api-v2.hearthis.at/"
 COOKIES = requests.cookies.RequestsCookieJar()
+USER = plugin.get_storage('user_data')
 
 strings = {
         'genres'        : 30000,
@@ -28,7 +29,10 @@ strings = {
         'search_track'  : 30009,
         'previous'      : 30010,
         'no_elements'   : 30011,
-        'ar_like'       : 30012
+        'add_like'      : 30012,
+        'rm_like'       : 30013,
+        'my_likes'      : 30014,
+        'login_failed'  : 30055
 }
 
 def _(string):
@@ -38,31 +42,43 @@ def _(string):
     else:
         return xbmcaddon.Addon().getLocalizedString(strings[string])
 
-def api_call(query, rtype='GET', data=None):
-    url = API_BASE_URL+query
+def api_call(path, params=None, rtype='GET', data=None, json=True):
+    if logged_in():
+        if params == None:
+            params = {}
+        params['key'] = USER['data']['key']
+        params['secret'] = USER['data']['secret']
+    url = API_BASE_URL+path
     headers = {'user-agent': USER_AGENT}
     
     plugin.log.info('api-call: %s with data %s' % (url,str(data)))
      
     if rtype == 'GET':
-        r = requests.get(url, headers=headers, cookies=COOKIES)
+        r = requests.get(url, params=params, headers=headers, cookies=COOKIES)
     else:
         plugin.log.info("doing post")
-        r = requests.post(url, data=data, headers=headers, cookies=COOKIES)
-    return r.json()
+        r = requests.post(url, params=params, data=data, headers=headers, cookies=COOKIES)
+    if json:
+        return r.json()
+    else:
+        return r.text
     
 
 
 
 @plugin.route('/')
 def main_menu():
+    login()
     items = [
                 {'label': _('recently_added'), 'path': plugin.url_for('show_feed_first', ftype='new')},
                 {'label': _('popular'), 'path': plugin.url_for('show_feed_first', ftype='popular')},
                 {'label': _('genres'), 'path': plugin.url_for('show_genres')},
+                {'label': _('my_likes'), 'path': plugin.url_for('show_users_likes_first', user=USER['data']['permalink'])},
                 {'label': _('search'), 'path': plugin.url_for('search')}
             ]
-    login('eikebaran89@gmail.com', '')
+    
+    
+    
     return plugin.finish(items)
 
 
@@ -75,7 +91,7 @@ def show_playlist(plink):
 @plugin.route('/user/<user>/playlists', name='show_users_playlists_first', options={'page': '1', 'first': 'True'})
 @plugin.route('/user/<user>/playlists/<page>')
 def show_users_playlists(user, page, first=False):
-    results = api_call(add_pp('%s/?type=playlists' % (user), page))  
+    results = api_call(user, add_pp({'type': 'playlists'}, page))  
     items = []
     for l in results:
         items.append({'label': l['title'], 'path': plugin.url_for('show_playlist', plink=l['permalink'])})#,'is_playable': True})
@@ -87,7 +103,7 @@ def show_users_playlists(user, page, first=False):
 @plugin.route('/user/<user>/likes', name='show_users_likes_first', options={'page': '1', 'first': 'True'})
 @plugin.route('/user/<user>/likes/<page>')
 def show_users_likes(user, page, first=False):
-    results = api_call(add_pp('%s/?type=likes' % (user), page))    
+    results = api_call(user, add_pp({'type': 'likes'}, page))    
     pagination={'call': 'show_users_likes', 'args':{'user': user, 'page': int(page)}}
     return list_tracks(results, pagination, first)
 
@@ -96,7 +112,7 @@ def show_users_likes(user, page, first=False):
 @plugin.route('/user/<user>/<page>')
 def show_user(user, page, first=False):
     u = api_call(user)
-    results = api_call(add_pp('%s/?type=tracks' % (user), page))
+    results = api_call(user, add_pp({'type': 'tracks'}, page))  
     pagination={'call': 'show_user', 'args':{'user': user, 'page': int(page)}}
     selectors = [
                     {'label': '%s (%s)' % (_('playlists'),str(u['playlist_count'])), 'path': plugin.url_for('show_users_playlists_first', user=user)},
@@ -121,7 +137,7 @@ def show_genres():
 @plugin.route('/feeds/<ftype>/<page>/<first>', name='show_feed_first', options={'page': '1', 'first': 'True'})
 @plugin.route('/feeds/<ftype>/<page>')
 def show_feed(ftype, page, first=False):
-    results = api_call(add_pp('feed/?type=%s' % (ftype), page))
+    results = api_call('feed', add_pp({'type': ftype}, page))  
     pagination={'call': 'show_feed', 'args':{'ftype': ftype, 'page': int(page)}}
     return list_tracks(results, pagination, first)
 
@@ -129,7 +145,7 @@ def show_feed(ftype, page, first=False):
 @plugin.route('/genre/<genre>/<page>/<first>', name='show_genre_first', options={'page': '1', 'first': 'True'})
 @plugin.route('/genre/<genre>/<page>')
 def show_genre(genre, page, first=False):
-    results = api_call(add_pp('categories/%s/' % (genre), page, sep='?'))
+    results = api_call('categories/'+genre, add_pp({}, page))  
     pagination={'call': 'show_genre', 'args':{'genre': genre, 'page': int(page)}}
     return list_tracks(results, pagination, first)
 
@@ -137,7 +153,7 @@ def show_genre(genre, page, first=False):
 @plugin.route('/search_for/<stype>/<skey>/<page>/<first>', name='search_for_first')
 @plugin.route('/search_for/<stype>/<skey>/<page>')
 def search_for(stype, skey, page, first=False):
-    results = api_call(add_pp('search?t=%s&type=%s' % (skey, stype), page))
+    results = api_call('search', add_pp({'type': stype, 't': skey}, page))  
     pagination={'call': 'search_for', 'args':{'stype': stype, 'skey': skey, 'page': int(page)}}
     if stype == 'tracks':
         return list_tracks(results, pagination, first)
@@ -173,7 +189,8 @@ def play_track(user, trackid):
 
 @plugin.route('/logged_in/likes/<trackid>/<add>')
 def add_remove_like(trackid, add):
-    dialogbox(str(trackid))
+    results = api_call('trackimgcnt.php', {'action': 'likes', 'trackid': trackid}, json=False)
+    dialogbox(results)
     return None
 
 
@@ -188,10 +205,21 @@ def list_tracks(tracklist, pagination = None, first=False, pre=[], post=[]):
     items = pre
     items.append(pn_button(pagination, -1, len(tracklist)))
     for t in tracklist:
+        plugin.log.info(str(t))
         show_user_url = plugin.url_for('show_user_first', user=t['user']['permalink'], page=1, first='True')
-        ar_like_url = plugin.url_for('add_remove_like', trackid=t['permalink'], add='True')
+        # Show like-button in context-menu, but only if logged in
+        if logged_in():
+            if t['favorited']:
+                lbl = 'rm_like'
+                add = 'False'
+            else:
+                lbl = 'add_like'
+                add = 'True'
+            ar_like = ( _(lbl), actions.update_view(plugin.url_for('add_remove_like', trackid=t['permalink'], add=add)))
+        else:
+            ar_like = None
         items.append({
-                'label': '%s - %s' % (t['user']['username'], t['title']),
+                'label': u'%s%s - %s' % ((u'[\u2665] ' if t['favorited']  else u''), t['user']['username'], t['title']),
                 'icon': t['artwork_url'],
                 'thumbnail': t['artwork_url'],
                 'info': {
@@ -202,8 +230,7 @@ def list_tracks(tracklist, pagination = None, first=False, pre=[], post=[]):
                             'playcount': t.get('playback_count', None)
                          },
                 'context_menu': [( _('show_artist'), actions.update_view(show_user_url)),
-#                                 ( _('ar_like'), actions.update_view(ar_like_url))
-                                
+                                 ar_like
                                 ],
                 'path': plugin.url_for('play_track', trackid=t['permalink'], user=t['user']['permalink']),
                 'is_playable': True
@@ -237,11 +264,28 @@ def pn_button(pagination, direction, length=PER_PAGE):
         return None
 
 
-def add_pp(call, page, sep = '&'):
-    return '%s%spage=%d&count=%d' % (call, sep, int(page), PER_PAGE)
+def add_pp(obj, page):
+    obj['page'] = int(page)
+    obj['count'] = PER_PAGE
+    return obj
 
-def login(email, password):
-    plugin.log.info("res: "+str(api_call('login/', rtype='POST', pdata={'email': email, 'password': password})))
+def login():
+    if xbmcaddon.Addon().getSetting('login_enabled') == 'false':
+        return
+    password = xbmcaddon.Addon().getSetting('password')
+    email = xbmcaddon.Addon().getSetting('email')
+    if logged_in():
+        return
+    result = api_call('login/', rtype='POST', data={'email': email, 'password': password})
+    plugin.log.info("res: "+str(result))
+    if result.get('success', True):
+        plugin.log.info("login successful")
+        USER['data'] = result
+    else:
+        dialogbox(_('login_failed'))
+
+def logged_in():
+    return USER['data'] != None
 
 if __name__ == '__main__':
     plugin.run()
