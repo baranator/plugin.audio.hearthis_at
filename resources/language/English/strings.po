@@ -47,5 +47,10 @@ msgid "previous"
 msgstr ""
 
 msgctxt "#30011"
-msgid "No further elements to show"
+msgid "No elements to show"
 msgstr ""
+
+msgctxt "#30012"
+msgid "Add remove like"
+msgstr ""
+

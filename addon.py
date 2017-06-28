@@ -2,16 +2,39 @@
 from kodiswift import Plugin
 from kodiswift import actions
 import xbmcgui
+import xbmcaddon
 import cookielib, urllib2 
 import simplejson as json
 import copy
-from language import get_string as _
+
 
 plugin = Plugin()
 
 USER_AGENT = 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.3) Gecko/2008092417 Firefox/3.0.3'
 PER_PAGE = 15
 HEARTHIS = 'hearthis.at'
+strings = {
+        'genres'        : 30000,
+        'playlists'     : 30001,
+        'show_artist'   : 30002,
+        'recently_added': 30003,
+        'search'        : 30004,
+        'search_artist' : 30005,
+        'next'          : 30006,
+        'likes'         : 30007,
+        'popular'       : 30008,
+        'search_track'  : 30009,
+        'previous'      : 30010,
+        'no_elements'   : 30011,
+        'ar_like'       : 30012
+}
+
+def _(string):
+    tstring = strings.get(string)
+    if tstring == None:
+        return None
+    else:
+        return xbmcaddon.Addon().getLocalizedString(strings[string])
 
 def api_call(query):
     api_base_url="https://api-v2.hearthis.at/"
@@ -30,10 +53,10 @@ def api_call(query):
 @plugin.route('/')
 def main_menu():
     items = [
-                {'label': _("Recently added"), 'path': plugin.url_for('show_feed_first', ftype='new')},
-                {'label': _("Popular"), 'path': plugin.url_for('show_feed_first', ftype='popular')},
-                {'label': _("Genres"), 'path': plugin.url_for('show_genres')},
-                {'label': _("Search"), 'path': plugin.url_for('search')}
+                {'label': _('recently_added'), 'path': plugin.url_for('show_feed_first', ftype='new')},
+                {'label': _('popular'), 'path': plugin.url_for('show_feed_first', ftype='popular')},
+                {'label': _('genres'), 'path': plugin.url_for('show_genres')},
+                {'label': _('search'), 'path': plugin.url_for('search')}
             ]
 
     return plugin.finish(items)
@@ -72,8 +95,8 @@ def show_user(user, page, first=False):
     results = api_call(add_pp('%s/?type=tracks' % (user), page))
     pagination={'call': 'show_user', 'args':{'user': user, 'page': int(page)}}
     selectors = [
-                    {'label': '%s (%s)' % (_("Playlists"),str(u['playlist_count'])), 'path': plugin.url_for('show_users_playlists_first', user=user)},
-                    {'label': '%s (%s)' % (_("Likes"), str(u['likes_count'])), 'path': plugin.url_for('show_users_likes_first', user=user)}
+                    {'label': '%s (%s)' % (_('playlists'),str(u['playlist_count'])), 'path': plugin.url_for('show_users_playlists_first', user=user)},
+                    {'label': '%s (%s)' % (_('likes'), str(u['likes_count'])), 'path': plugin.url_for('show_users_likes_first', user=user)}
                 ]
     return list_tracks(results, pagination, first, pre=selectors)
 
@@ -125,24 +148,29 @@ def search_for(stype, skey, page, first=False):
 #TODO: sometimes jumps out of plugin while browsing search results
 @plugin.route('/search')
 def search():
-    kb = xbmc.Keyboard ('', _("Search"), False)
+    kb = xbmc.Keyboard ('', _('Search'), False)
     kb.doModal()
     if kb.isConfirmed():
         skey = kb.getText()
     else:
         return None
     selectors = [
-                        {'label': _("Search for artist only"), 'path': plugin.url_for('search_for_first', stype='user', skey=skey, page=1, first='True')},
-                        {'label': _("Search for tracks only"), 'path': plugin.url_for('search_for_first', stype='tracks', skey=skey, page=1, first='True')}
+                        {'label': _('search_artist'), 'path': plugin.url_for('search_for_first', stype='user', skey=skey, page=1, first='True')},
+                        {'label': _('search_track'), 'path': plugin.url_for('search_for_first', stype='tracks', skey=skey, page=1, first='True')}
                 ]
     return plugin.finish(selectors)
     
    
 @plugin.route('/play/<user>/<trackid>')
-def play_track(user,trackid):
+def play_track(user, trackid):
     playurl='https://hearthis.at/'+user+'/'+trackid+'/listen'
     plugin.log.info('Playing: %s'%playurl)
     return plugin.set_resolved_url(playurl)   
+
+@plugin.route('/logged_in/likes/<trackid>/<add>')
+def add_remove_like(trackid, add):
+    dialogbox(str(trackid))
+    return None
 
 
 def dialogbox(msg):
@@ -151,13 +179,13 @@ def dialogbox(msg):
 
 def list_tracks(tracklist, pagination = None, first=False, pre=[], post=[]):
     if isinstance(tracklist, dict):
-        dialogbox(_('No further elements to show'))
+        dialogbox(_('no_elements'))
         return None
     items = pre
     items.append(pn_button(pagination, -1, len(tracklist)))
     for t in tracklist:
-        url = plugin.url_for('show_user_first', user=t['user']['permalink'], page=1, first=True)
-        plugin.log.info(url)
+        show_user_url = plugin.url_for('show_user_first', user=t['user']['permalink'], page=1, first='True')
+        ar_like_url = plugin.url_for('add_remove_like', trackid=t['permalink'], add='True')
         items.append({
                 'label': '%s - %s' % (t['user']['username'], t['title']),
                 'icon': t['artwork_url'],
@@ -169,7 +197,10 @@ def list_tracks(tracklist, pagination = None, first=False, pre=[], post=[]):
                             'genre': t.get('genre', None),
                             'playcount': t.get('playback_count', None)
                          },
-                'context_menu': [( _('Show artist'), actions.update_view(url))],
+                'context_menu': [( _('show_artist'), actions.update_view(show_user_url)),
+#                                 ( _('ar_like'), actions.update_view(ar_like_url))
+                                
+                                ],
                 'path': plugin.url_for('play_track', trackid=t['permalink'], user=t['user']['permalink']),
                 'is_playable': True
         })
