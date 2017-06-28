@@ -62,8 +62,16 @@ msgctxt "#30014"
 msgid "My likes"
 msgstr ""
 
-msgctxt "#30013"
+msgctxt "#30015"
 msgid "Following"
+msgstr ""
+
+msgctxt "#30016"
+msgid "Follow Artist"
+msgstr ""
+
+msgctxt "#30017"
+msgid "Unfollow Artist"
 msgstr ""
 
 msgctxt "#30050"

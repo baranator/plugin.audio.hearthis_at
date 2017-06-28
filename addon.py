@@ -32,6 +32,9 @@ strings = {
         'add_like'      : 30012,
         'rm_like'       : 30013,
         'my_likes'      : 30014,
+        'following'     : 30015,
+        'add_follow'    : 30016,
+        'rm_follow'     : 30017,
         'login_failed'  : 30055
 }
 
@@ -69,17 +72,22 @@ def api_call(path, params=None, rtype='GET', data=None, json=True):
 @plugin.route('/')
 def main_menu():
     login()
-    items = [
+    items1 = [
                 {'label': _('recently_added'), 'path': plugin.url_for('show_feed_first', ftype='new')},
                 {'label': _('popular'), 'path': plugin.url_for('show_feed_first', ftype='popular')},
                 {'label': _('genres'), 'path': plugin.url_for('show_genres')},
+            ]
+    items_private = [   
                 {'label': _('my_likes'), 'path': plugin.url_for('show_users_likes_first', user=USER['data']['permalink'])},
+                {'label': _('following'), 'path': plugin.url_for('show_following_first', user=USER['data']['permalink'])},
+            ]
+    items2 = [
                 {'label': _('search'), 'path': plugin.url_for('search')}
             ]
     
     
     
-    return plugin.finish(items)
+    return plugin.finish(items1 + items_private + items2)
 
 
 @plugin.route('/playlist/<plink>')
@@ -106,6 +114,53 @@ def show_users_likes(user, page, first=False):
     results = api_call(user, add_pp({'type': 'likes'}, page))    
     pagination={'call': 'show_users_likes', 'args':{'user': user, 'page': int(page)}}
     return list_tracks(results, pagination, first)
+
+def list_users(userlist, pagination = None, first=False, pre=[], post=[]):
+    if isinstance(userlist, dict):
+        dialogbox(_('no_elements'))
+        return None
+    items = pre
+    items.append(pn_button(pagination, -1, len(userlist)))
+    for u in userlist:
+        plugin.log.info(str(u))
+        show_user_url = plugin.url_for('show_user_first', user=u['permalink'], page=1, first='True')
+        # Show like-button in context-menu, but only if logged in
+        if logged_in():
+            if u['following']:
+                lbl = 'rm_following'
+                add = 'False'
+            else:
+                lbl = 'add_following'
+                add = 'True'
+            ar_follow = ( _(lbl), actions.update_view(plugin.url_for('toggle_follow', user=u['permalink'], add=add)))
+        else:
+            ar_follow = None
+            
+        items.append({'label': '%s (%s tracks)' % (u['username'], str(u['track_count'])), 
+                      'icon': u['avatar_url'], 
+                      'context_menu':   [
+                                            ar_follow
+                                        ],
+                      'path': plugin.url_for('show_user_first', user=u['permalink'], page=1, first=True)})
+            
+    items = items + post
+    items.append(pn_button(pagination, 1, len(userlist)))
+    
+    #only skip history if turning pages, not if opening first page initially
+    if pagination != None and first != 'True':
+        ul=True
+    else:
+        ul=False
+    return plugin.finish(items, update_listing=ul)
+
+
+
+@plugin.route('/user/<user>/following', name='show_following_first', options={'page': '1', 'first': 'True'})
+@plugin.route('/user/<user>/following/<page>')
+def show_following(user, page, first=False):
+    results = api_call(user+'/following', add_pp({}, page))    
+    pagination={'call': 'show_following', 'args':{'user': user, 'page': int(page)}}
+    return list_users(results, pagination, first)
 
 
 @plugin.route('/user/<user>/<page>/<first>', name='show_user_first', options={'page': '1', 'first': 'True'})
@@ -158,11 +213,7 @@ def search_for(stype, skey, page, first=False):
     if stype == 'tracks':
         return list_tracks(results, pagination, first)
     elif stype == 'user':
-        items = [pn_button(pagination, -1, len(results))]
-        for u in results:
-            items.append({'label': '%s (%s tracks)' % (u['username'], str(u['track_count'])), 'icon': u['avatar_url'], 'path': plugin.url_for('show_user_first', user=u['permalink'], page=1, first=True)})
-        items += [pn_button(pagination, 1, len(results))]
-        return items
+        return list_users(results, pagination, first)
 
 
 #TODO: sometimes jumps out of plugin while browsing search results
@@ -187,12 +238,27 @@ def play_track(user, trackid):
     plugin.log.info('Playing: %s'%playurl)
     return plugin.set_resolved_url(playurl)   
 
-@plugin.route('/logged_in/likes/<trackid>/<add>')
-def add_remove_like(trackid, add):
-    results = api_call('trackimgcnt.php', {'action': 'likes', 'trackid': trackid}, json=False)
+@plugin.route('/logged_in/like/<user>/<trackid>/<add>')
+def toggle_like(user, trackid, add):
+    if add == 'True':
+        a = 'like'
+    else:
+        a = 'dislike'
+    results = api_call(user+'/'+trackid+'/'+a)
+    plugin.log.info("Like: "+str(results))
     dialogbox(results)
     return None
 
+
+@plugin.route('/logged_in/follow/<user>/<add>')
+def toggle_follow(user, add):
+    if add == 'True':
+        a = 'follow'
+    else:
+        a = 'follow'
+    results = api_call(user+'/'+a)
+    dialogbox(results)
+    return None
 
 def dialogbox(msg):
     xbmc.executebuiltin('Notification(%s, %s)'%(HEARTHIS, msg))
@@ -205,7 +271,7 @@ def list_tracks(tracklist, pagination = None, first=False, pre=[], post=[]):
     items = pre
     items.append(pn_button(pagination, -1, len(tracklist)))
     for t in tracklist:
-        plugin.log.info(str(t))
+        #plugin.log.info(str(t))
         show_user_url = plugin.url_for('show_user_first', user=t['user']['permalink'], page=1, first='True')
         # Show like-button in context-menu, but only if logged in
         if logged_in():
@@ -215,7 +281,7 @@ def list_tracks(tracklist, pagination = None, first=False, pre=[], post=[]):
             else:
                 lbl = 'add_like'
                 add = 'True'
-            ar_like = ( _(lbl), actions.update_view(plugin.url_for('add_remove_like', trackid=t['permalink'], add=add)))
+            ar_like = ( _(lbl), actions.update_view(plugin.url_for('toggle_like', trackid=t['permalink'], user=t['user']['permalink'], add=add)))
         else:
             ar_like = None
         items.append({
