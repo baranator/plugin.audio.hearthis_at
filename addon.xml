@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.audio.hearthis_at" name="Hearthis.at" version="0.0.1" provider-name="Eike Baran">
+<addon id="plugin.audio.hearthis_at" name="Hearthis.at" version="0.1" provider-name="Eike Baran">
   <requires>
     <import addon="xbmc.python" version="2.24.0" />
     <import addon="script.module.kodiswift" version="0.0.1" />
@@ -10,9 +10,10 @@
   </extension>
   <extension point="xbmc.addon.metadata">
     <platform>all</platform>
-    <language>en</language>
+    <language>en de</language>
     <assets>
         <icon>icon.png</icon>
+        <fanart>fanart.jpg</fanart>
     </assets>
     <summary lang="en">Summary for "Hearthis.at"</summary>
     <description lang="en">Hearthis.at is a online audio distribution platform that enables its users to upload, record, promote, and share their originally-created sounds. This addon provides the most important features to access that content.</description>

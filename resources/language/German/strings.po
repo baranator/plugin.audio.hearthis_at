@@ -65,9 +65,38 @@ msgctxt "#30011"
 msgid "No elements to show"
 msgstr "Keine Elemente gefunden"
 
+msgctxt "#30012"
+msgid "Add like"
+msgstr "Like hinzufügen"
+
+msgctxt "#30013"
+msgid "Remove like"
+msgstr "Like entfernen"
+
+msgctxt "#30014"
+msgid "My likes"
+msgstr "Meine Likes"
+
+msgctxt "#30015"
+msgid "Following"
+msgstr "Künstler, denen ich folge"
+
+msgctxt "#30016"
+msgid "Follow Artist"
+msgstr "Folge diesem Künstler"
+
+msgctxt "#30017"
+msgid "Unfollow Artist"
+msgstr "Folge diesem Künstler nicht mehr"
+
+msgctxt "#30017"
+msgid "tracks"
+msgstr "Titel"
+
+
 msgctxt "#30050"
 msgid "hearthis.at credentials"
-msgstr ""
+msgstr "hearthis.at Zugangsdaten"
 
 msgctxt "#30051"
 msgid "Email"

@@ -35,6 +35,7 @@ strings = {
         'following'     : 30015,
         'add_follow'    : 30016,
         'rm_follow'     : 30017,
+        'tracks'        : 30018,
         'login_failed'  : 30055
 }
 
@@ -115,6 +116,21 @@ def show_users_likes(user, page, first=False):
     pagination={'call': 'show_users_likes', 'args':{'user': user, 'page': int(page)}}
     return list_tracks(results, pagination, first)
 
+
+def follow_user_context_item(user, following):
+    if logged_in():
+        if following:
+            lbl = 'rm_following'
+            add = 'False'
+        else:
+            lbl = 'add_following'
+            add = 'True'
+        ar_follow = ( _(lbl), actions.update_view(plugin.url_for('toggle_follow', user=user, add=add)))
+    else:
+        ar_follow = None
+    return ar_follow
+
+
 def list_users(userlist, pagination = None, first=False, pre=[], post=[]):
     if isinstance(userlist, dict):
         dialogbox(_('no_elements'))
@@ -122,24 +138,10 @@ def list_users(userlist, pagination = None, first=False, pre=[], post=[]):
     items = pre
     items.append(pn_button(pagination, -1, len(userlist)))
     for u in userlist:
-        plugin.log.info(str(u))
-        show_user_url = plugin.url_for('show_user_first', user=u['permalink'], page=1, first='True')
-        # Show like-button in context-menu, but only if logged in
-        if logged_in():
-            if u['following']:
-                lbl = 'rm_following'
-                add = 'False'
-            else:
-                lbl = 'add_following'
-                add = 'True'
-            ar_follow = ( _(lbl), actions.update_view(plugin.url_for('toggle_follow', user=u['permalink'], add=add)))
-        else:
-            ar_follow = None
-            
-        items.append({'label': '%s (%s tracks)' % (u['username'], str(u['track_count'])), 
+        items.append({'label': '%s%s (%s %s)' % ((u'[\u2665] ' if u['following']  else u''), u['username'], str(u['track_count']), _('tracks')), 
                       'icon': u['avatar_url'], 
                       'context_menu':   [
-                                            ar_follow
+                                            follow_user_context_item(u['permalink'], u['following'])
                                         ],
                       'path': plugin.url_for('show_user_first', user=u['permalink'], page=1, first=True)})
             
@@ -152,7 +154,6 @@ def list_users(userlist, pagination = None, first=False, pre=[], post=[]):
     else:
         ul=False
     return plugin.finish(items, update_listing=ul)
-
 
 
 @plugin.route('/user/<user>/following', name='show_following_first', options={'page': '1', 'first': 'True'})
@@ -240,6 +241,8 @@ def play_track(user, trackid):
 
 @plugin.route('/logged_in/like/<user>/<trackid>/<add>')
 def toggle_like(user, trackid, add):
+#def toggle_like(**args):  
+#    plugin.log.info(args)
     if add == 'True':
         a = 'like'
     else:
@@ -255,13 +258,34 @@ def toggle_follow(user, add):
     if add == 'True':
         a = 'follow'
     else:
-        a = 'follow'
+        a = 'unfollow'
     results = api_call(user+'/'+a)
     dialogbox(results)
     return None
 
+
 def dialogbox(msg):
     xbmc.executebuiltin('Notification(%s, %s)'%(HEARTHIS, msg))
+
+
+def show_user_context_item(user):
+    show_user_url = plugin.url_for('show_user_first', user=user, page=1, first='True')
+    return ( _('show_artist'), actions.update_view(show_user_url))
+
+
+def like_track_context_item(user, trackid, favorited):
+        # Show like-button in context-menu, but only if logged in
+        if logged_in():
+            if favorited:
+                lbl = 'rm_like'
+                add = 'False'
+            else:
+                lbl = 'add_like'
+                add = 'True'
+            ar_like = ( _(lbl), actions.update_view(plugin.url_for('toggle_like', trackid=trackid, user=user, add=add)))
+        else:
+            ar_like = None
+        return ar_like
 
 
 def list_tracks(tracklist, pagination = None, first=False, pre=[], post=[]):
@@ -271,19 +295,7 @@ def list_tracks(tracklist, pagination = None, first=False, pre=[], post=[]):
     items = pre
     items.append(pn_button(pagination, -1, len(tracklist)))
     for t in tracklist:
-        #plugin.log.info(str(t))
-        show_user_url = plugin.url_for('show_user_first', user=t['user']['permalink'], page=1, first='True')
-        # Show like-button in context-menu, but only if logged in
-        if logged_in():
-            if t['favorited']:
-                lbl = 'rm_like'
-                add = 'False'
-            else:
-                lbl = 'add_like'
-                add = 'True'
-            ar_like = ( _(lbl), actions.update_view(plugin.url_for('toggle_like', trackid=t['permalink'], user=t['user']['permalink'], add=add)))
-        else:
-            ar_like = None
+        
         items.append({
                 'label': u'%s%s - %s' % ((u'[\u2665] ' if t['favorited']  else u''), t['user']['username'], t['title']),
                 'icon': t['artwork_url'],
@@ -295,8 +307,9 @@ def list_tracks(tracklist, pagination = None, first=False, pre=[], post=[]):
                             'genre': t.get('genre', None),
                             'playcount': t.get('playback_count', None)
                          },
-                'context_menu': [( _('show_artist'), actions.update_view(show_user_url)),
-                                 ar_like
+                'context_menu': [
+                                    show_user_context_item(t['user']['permalink']),
+                                    like_track_context_item(t['user']['permalink'], t['permalink'], t['favorited'])
                                 ],
                 'path': plugin.url_for('play_track', trackid=t['permalink'], user=t['user']['permalink']),
                 'is_playable': True
@@ -335,6 +348,7 @@ def add_pp(obj, page):
     obj['count'] = PER_PAGE
     return obj
 
+
 def login():
     if xbmcaddon.Addon().getSetting('login_enabled') == 'false':
         return
@@ -350,8 +364,10 @@ def login():
     else:
         dialogbox(_('login_failed'))
 
+
 def logged_in():
     return USER['data'] != None
+
 
 if __name__ == '__main__':
     plugin.run()
