@@ -3,8 +3,7 @@ from kodiswift import Plugin
 from kodiswift import actions
 import xbmcgui
 import xbmcaddon
-import cookielib, urllib2 
-import simplejson as json
+import requests
 import copy
 
 
@@ -13,6 +12,9 @@ plugin = Plugin()
 USER_AGENT = 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.3) Gecko/2008092417 Firefox/3.0.3'
 PER_PAGE = 15
 HEARTHIS = 'hearthis.at'
+API_BASE_URL="https://api-v2.hearthis.at/"
+COOKIES = requests.cookies.RequestsCookieJar()
+
 strings = {
         'genres'        : 30000,
         'playlists'     : 30001,
@@ -36,18 +38,18 @@ def _(string):
     else:
         return xbmcaddon.Addon().getLocalizedString(strings[string])
 
-def api_call(query):
-    api_base_url="https://api-v2.hearthis.at/"
-    cj = cookielib.CookieJar()
-    opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
-    url = api_base_url+query
-    request = urllib2.Request(url)
-    plugin.log.info('api-call: %s'%url)
-    request.add_header('User-Agent', USER_AGENT)
-    response = opener.open(request)
-    jsono = response.read()
-    response.close()
-    return json.loads(jsono)
+def api_call(query, rtype='GET', data=None):
+
+    url = API_BASE_URL+query
+    headers = {'user-agent': USER_AGENT}
+    
+    if rtype == 'GET':
+        r = requests.get(url, headers=headers, cookies=COOKIES)
+    else:
+        r = requests.post(url, headers=headers, cookies=COOKIES, data=data)
+    return r.json()
+    
+
 
 
 @plugin.route('/')
@@ -58,7 +60,7 @@ def main_menu():
                 {'label': _('genres'), 'path': plugin.url_for('show_genres')},
                 {'label': _('search'), 'path': plugin.url_for('search')}
             ]
-
+    login('eikebaran89@gmail.com','U7tnUfzKD7TBENw')
     return plugin.finish(items)
 
 
@@ -236,6 +238,8 @@ def pn_button(pagination, direction, length=PER_PAGE):
 def add_pp(call, page, sep = '&'):
     return '%s%spage=%d&count=%d' % (call, sep, int(page), PER_PAGE)
 
+def login(email, password):
+    plugin.log.info("res: "+api_call('login', rtype='POST', data={'email': email, 'password': password}))
 
 if __name__ == '__main__':
     plugin.run()
