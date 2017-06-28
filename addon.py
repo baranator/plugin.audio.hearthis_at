@@ -39,14 +39,16 @@ def _(string):
         return xbmcaddon.Addon().getLocalizedString(strings[string])
 
 def api_call(query, rtype='GET', data=None):
-
     url = API_BASE_URL+query
     headers = {'user-agent': USER_AGENT}
     
+    plugin.log.info('api-call: %s with data %s' % (url,str(data)))
+     
     if rtype == 'GET':
         r = requests.get(url, headers=headers, cookies=COOKIES)
     else:
-        r = requests.post(url, headers=headers, cookies=COOKIES, data=data)
+        plugin.log.info("doing post")
+        r = requests.post(url, data=data, headers=headers, cookies=COOKIES)
     return r.json()
     
 
@@ -60,7 +62,7 @@ def main_menu():
                 {'label': _('genres'), 'path': plugin.url_for('show_genres')},
                 {'label': _('search'), 'path': plugin.url_for('search')}
             ]
-    login('eikebaran89@gmail.com','U7tnUfzKD7TBENw')
+    login('eikebaran89@gmail.com', '')
     return plugin.finish(items)
 
 
@@ -239,7 +241,7 @@ def add_pp(call, page, sep = '&'):
     return '%s%spage=%d&count=%d' % (call, sep, int(page), PER_PAGE)
 
 def login(email, password):
-    plugin.log.info("res: "+api_call('login', rtype='POST', data={'email': email, 'password': password}))
+    plugin.log.info("res: "+str(api_call('login/', rtype='POST', pdata={'email': email, 'password': password})))
 
 if __name__ == '__main__':
     plugin.run()
