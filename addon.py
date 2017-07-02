@@ -43,8 +43,8 @@ strings = {
         'rm_like'       : 30013,
         'my_likes'      : 30014,
         'following'     : 30015,
-        'add_following' : 30016,
-        'rm_following'  : 30017,
+        'add_follow'    : 30016,
+        'rm_follow'     : 30017,
         'tracks'        : 30018,
         'login_failed'  : 30055
 }
@@ -135,40 +135,6 @@ def show_users_likes(user, page, first=False):
     return list_tracks(results, pagination, first)
 
 
-def follow_user_context_item(user, following):
-    if logged_in():
-        if following:
-            lbl = 'rm_following'
-        else:
-            lbl = 'add_following'
-        ar_follow = ( _(lbl), actions.update_view(plugin.url_for('toggle_follow', user=user)))
-    else:
-        ar_follow = None
-    return ar_follow
-
-def context_item_toggle(prop, toggle_state, login_req=True, **args):
-        if not login_req or logged_in():
-            if favorited:
-                lbl = 'rm_'+prop
-            else:
-                lbl = 'add_'+prop
-            ar_like = ( _(lbl), actions.update_view(plugin.url_for('toggle_'+prop, trackid=trackid, user=user)))
-        else:
-            ar_like = None
-        return ar_like
-
-def like_track_context_item(user, trackid, favorited):
-        # Show like-button in context-menu, but only if logged in
-        if logged_in():
-            if favorited:
-                lbl = 'rm_like'
-            else:
-                lbl = 'add_like'
-            ar_like = ( _(lbl), actions.update_view(plugin.url_for('toggle_like', trackid=trackid, user=user)))
-        else:
-            ar_like = None
-        return ar_like
-
 def list_users(userlist, pagination = None, first=False, pre=[], post=[]):
     if isinstance(userlist, dict):
         notify(_('no_elements'))
@@ -179,7 +145,7 @@ def list_users(userlist, pagination = None, first=False, pre=[], post=[]):
         items.append({'label': '%s%s (%s %s)' % ((u'[\u2665] ' if u.get('following', False)  else u''), u['username'], str(u['track_count']), _('tracks')), 
                       'icon': u['avatar_url'], 
                       'context_menu':   [
-                                            follow_user_context_item(u['permalink'], u['following'])
+                                            context_item_toggle('follow', u['following'], {'user': u['permalink']})
                                         ],
                       'path': plugin.url_for('show_user_first', user=u['permalink'], page=1, first=True)})
             
@@ -209,8 +175,8 @@ def show_user(user, page, first=False):
     results = api_call(user, add_pp({'type': 'tracks'}, page))  
     pagination={'call': 'show_user', 'args':{'user': user, 'page': int(page)}}
     selectors = [
-                    {'label': '%s (%s)' % (_('playlists'),str(u['playlist_count'])), 'path': plugin.url_for('show_users_playlists_first', user=user)},
-                    {'label': '%s (%s)' % (_('likes'), str(u['likes_count'])), 'path': plugin.url_for('show_users_likes_first', user=user)}
+                    {'label': '%s (%s)' % (_('playlists'), str(u['playlist_count'])), 'icon': get_image('playlist.png'), 'path': plugin.url_for('show_users_playlists_first', user=user)},
+                    {'label': '%s (%s)' % (_('likes'), str(u['likes_count'])), 'icon': get_image('likes.png'), 'path': plugin.url_for('show_users_likes_first', user=user)}
                 ]
     return list_tracks(results, pagination, first, pre=selectors)
 
@@ -278,21 +244,33 @@ def play_track(user, trackid):
     return plugin.set_resolved_url(playurl)   
 
 
-@plugin.route('/logged_in/like/<user>/<trackid>')
-def toggle_like(user, trackid):
-#def toggle_like(**args):  
-#    plugin.log.info(args)
-    results = api_call(user+'/'+trackid+'/like')
-    plugin.log.info("Like: "+str(results))
-    notify(results)
+@plugin.route('/logged_in/toggle/<prop>')
+def toggle_prop(prop):
+    parms = plugin.request.args
+    PLUGIN.log.info(str(parms))
+    if prop == 'like':
+        results = api_call(parms['user'][0]+'/'+parms['trackid'][0]+'/like')
+        r = results['liked']
+    elif prop == 'follow':
+        results = api_call(parms['user'][0]+'/follow')
+        r = results['follow']
+    elif prop == 'reshare':
+        results = api_call(parms['user'][0]+'/'+parms['trackid'][0]+'/reshare')
+    PLUGIN.log.info(str(results))
+    PLUGIN.notify('set' if r else 'reset')
     return None
 
-
-@plugin.route('/logged_in/follow/<user>')
-def toggle_follow(user):
-    results = api_call(user+'/follow')
-    notify(results)
-    return None
+def context_item_toggle(prop, state, parms):
+    if logged_in():
+        if state:
+            lbl = 'rm_'+prop
+        else:
+            lbl = 'add_'+prop
+        parms['prop'] = prop
+        ar_follow = ( _(lbl), actions.update_view(plugin.url_for('toggle_prop', **parms)))
+    else:
+        ar_follow = None
+    return ar_follow
 
 
 def show_user_context_item(user):
@@ -323,7 +301,7 @@ def list_tracks(tracklist, pagination = None, first=False, pre=[], post=[]):
                          },
                 'context_menu': [
                                     show_user_context_item(t['user']['permalink']),
-                                    like_track_context_item(t['user']['permalink'], t['permalink'], t['favorited'])
+                                    context_item_toggle('like', t['favorited'], {'user':t['user']['permalink'], 'trackid': t['permalink']})
                                 ],
                 'path': plugin.url_for('play_track', trackid=t['permalink'], user=t['user']['permalink']),
                 'is_playable': True
