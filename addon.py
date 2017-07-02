@@ -1,20 +1,30 @@
 # -*- coding: utf-8 -*-
 from kodiswift import Plugin
 from kodiswift import actions
-import xbmcgui
+from kodiswift import xbmcgui
 import xbmcaddon
 import requests
 import copy
+import platform
+import os
 
 
-plugin = Plugin()
+# Global vars
+PLUGIN = Plugin()
+plugin = PLUGIN
 
-USER_AGENT = 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.3) Gecko/2008092417 Firefox/3.0.3'
+ADDON = PLUGIN.addon
+USER_AGENT = "Kodi ("+platform.system() + ") hearthis.at-Plugin/" + ADDON.getAddonInfo('version')
+plugin.log.info(USER_AGENT)
 PER_PAGE = 15
 HEARTHIS = 'hearthis.at'
 API_BASE_URL="https://api-v2.hearthis.at/"
-COOKIES = requests.cookies.RequestsCookieJar()
 USER = plugin.get_storage('user_data')
+
+ADDON_PATH = ADDON.getAddonInfo('path')
+
+def get_image(img):
+    return os.path.join(ADDON_PATH,'resources','images', img)
 
 strings = {
         'genres'        : 30000,
@@ -33,18 +43,22 @@ strings = {
         'rm_like'       : 30013,
         'my_likes'      : 30014,
         'following'     : 30015,
-        'add_follow'    : 30016,
-        'rm_follow'     : 30017,
+        'add_following' : 30016,
+        'rm_following'  : 30017,
         'tracks'        : 30018,
         'login_failed'  : 30055
 }
+
+
+win = xbmcgui.Window(xbmcgui.getCurrentWindowId())
+
 
 def _(string):
     tstring = strings.get(string)
     if tstring == None:
         return None
     else:
-        return xbmcaddon.Addon().getLocalizedString(strings[string])
+        return ADDON.getLocalizedString(strings[string])
 
 def api_call(path, params=None, rtype='GET', data=None, json=True):
     if logged_in():
@@ -58,10 +72,10 @@ def api_call(path, params=None, rtype='GET', data=None, json=True):
     plugin.log.info('api-call: %s with data %s' % (url,str(data)))
      
     if rtype == 'GET':
-        r = requests.get(url, params=params, headers=headers, cookies=COOKIES)
+        r = requests.get(url, params=params, headers=headers)
     else:
         plugin.log.info("doing post")
-        r = requests.post(url, params=params, data=data, headers=headers, cookies=COOKIES)
+        r = requests.post(url, params=params, data=data, headers=headers)
     if json:
         return r.json()
     else:
@@ -74,16 +88,20 @@ def api_call(path, params=None, rtype='GET', data=None, json=True):
 def main_menu():
     login()
     items1 = [
-                {'label': _('recently_added'), 'path': plugin.url_for('show_feed_first', ftype='new')},
-                {'label': _('popular'), 'path': plugin.url_for('show_feed_first', ftype='popular')},
-                {'label': _('genres'), 'path': plugin.url_for('show_genres')},
+                {'label': _('recently_added'), 'icon': get_image('new.png'), 'path': plugin.url_for('show_feed_first', ftype='new')},
+                {'label': _('popular'), 'icon': get_image('popular.png'), 'path': plugin.url_for('show_feed_first', ftype='popular')},
+                {'label': _('genres'), 'icon': get_image('genres.png'), 'path': plugin.url_for('show_genres')},
             ]
-    items_private = [   
-                {'label': _('my_likes'), 'path': plugin.url_for('show_users_likes_first', user=USER['data']['permalink'])},
-                {'label': _('following'), 'path': plugin.url_for('show_following_first', user=USER['data']['permalink'])},
-            ]
+    
+    if logged_in():
+        items_private = [   
+                {'label': _('my_likes'), 'icon': get_image('likes.png'), 'path': plugin.url_for('show_users_likes_first', user=USER['data']['permalink'])},
+                {'label': _('following'), 'icon': get_image('following.png'), 'path': plugin.url_for('show_following_first', user=USER['data']['permalink'])},
+                        ]
+    else:
+        items_private = []
     items2 = [
-                {'label': _('search'), 'path': plugin.url_for('search')}
+                {'label': _('search'), 'icon': get_image('search.png'),  'path': plugin.url_for('search')}
             ]
     
     
@@ -121,24 +139,44 @@ def follow_user_context_item(user, following):
     if logged_in():
         if following:
             lbl = 'rm_following'
-            add = 'False'
         else:
             lbl = 'add_following'
-            add = 'True'
-        ar_follow = ( _(lbl), actions.update_view(plugin.url_for('toggle_follow', user=user, add=add)))
+        ar_follow = ( _(lbl), actions.update_view(plugin.url_for('toggle_follow', user=user)))
     else:
         ar_follow = None
     return ar_follow
 
+def context_item_toggle(prop, toggle_state, login_req=True, **args):
+        if not login_req or logged_in():
+            if favorited:
+                lbl = 'rm_'+prop
+            else:
+                lbl = 'add_'+prop
+            ar_like = ( _(lbl), actions.update_view(plugin.url_for('toggle_'+prop, trackid=trackid, user=user)))
+        else:
+            ar_like = None
+        return ar_like
+
+def like_track_context_item(user, trackid, favorited):
+        # Show like-button in context-menu, but only if logged in
+        if logged_in():
+            if favorited:
+                lbl = 'rm_like'
+            else:
+                lbl = 'add_like'
+            ar_like = ( _(lbl), actions.update_view(plugin.url_for('toggle_like', trackid=trackid, user=user)))
+        else:
+            ar_like = None
+        return ar_like
 
 def list_users(userlist, pagination = None, first=False, pre=[], post=[]):
     if isinstance(userlist, dict):
-        dialogbox(_('no_elements'))
+        notify(_('no_elements'))
         return None
     items = pre
     items.append(pn_button(pagination, -1, len(userlist)))
     for u in userlist:
-        items.append({'label': '%s%s (%s %s)' % ((u'[\u2665] ' if u['following']  else u''), u['username'], str(u['track_count']), _('tracks')), 
+        items.append({'label': '%s%s (%s %s)' % ((u'[\u2665] ' if u.get('following', False)  else u''), u['username'], str(u['track_count']), _('tracks')), 
                       'icon': u['avatar_url'], 
                       'context_menu':   [
                                             follow_user_context_item(u['permalink'], u['following'])
@@ -227,8 +265,8 @@ def search():
     else:
         return None
     selectors = [
-                        {'label': _('search_artist'), 'path': plugin.url_for('search_for_first', stype='user', skey=skey, page=1, first='True')},
-                        {'label': _('search_track'), 'path': plugin.url_for('search_for_first', stype='tracks', skey=skey, page=1, first='True')}
+                        {'label': _('search_artist'), 'icon': get_image('search_artist.png'), 'path': plugin.url_for('search_for_first', stype='user', skey=skey, page=1, first='True')},
+                        {'label': _('search_track'), 'icon': get_image('search_track.png'), 'path': plugin.url_for('search_for_first', stype='tracks', skey=skey, page=1, first='True')}
                 ]
     return plugin.finish(selectors)
     
@@ -239,33 +277,22 @@ def play_track(user, trackid):
     plugin.log.info('Playing: %s'%playurl)
     return plugin.set_resolved_url(playurl)   
 
-@plugin.route('/logged_in/like/<user>/<trackid>/<add>')
-def toggle_like(user, trackid, add):
+
+@plugin.route('/logged_in/like/<user>/<trackid>')
+def toggle_like(user, trackid):
 #def toggle_like(**args):  
 #    plugin.log.info(args)
-    if add == 'True':
-        a = 'like'
-    else:
-        a = 'dislike'
-    results = api_call(user+'/'+trackid+'/'+a)
+    results = api_call(user+'/'+trackid+'/like')
     plugin.log.info("Like: "+str(results))
-    dialogbox(results)
+    notify(results)
     return None
 
 
-@plugin.route('/logged_in/follow/<user>/<add>')
-def toggle_follow(user, add):
-    if add == 'True':
-        a = 'follow'
-    else:
-        a = 'unfollow'
-    results = api_call(user+'/'+a)
-    dialogbox(results)
+@plugin.route('/logged_in/follow/<user>')
+def toggle_follow(user):
+    results = api_call(user+'/follow')
+    notify(results)
     return None
-
-
-def dialogbox(msg):
-    xbmc.executebuiltin('Notification(%s, %s)'%(HEARTHIS, msg))
 
 
 def show_user_context_item(user):
@@ -273,39 +300,26 @@ def show_user_context_item(user):
     return ( _('show_artist'), actions.update_view(show_user_url))
 
 
-def like_track_context_item(user, trackid, favorited):
-        # Show like-button in context-menu, but only if logged in
-        if logged_in():
-            if favorited:
-                lbl = 'rm_like'
-                add = 'False'
-            else:
-                lbl = 'add_like'
-                add = 'True'
-            ar_like = ( _(lbl), actions.update_view(plugin.url_for('toggle_like', trackid=trackid, user=user, add=add)))
-        else:
-            ar_like = None
-        return ar_like
-
-
 def list_tracks(tracklist, pagination = None, first=False, pre=[], post=[]):
     if isinstance(tracklist, dict):
-        dialogbox(_('no_elements'))
+        notify(_('no_elements'))
         return None
     items = pre
     items.append(pn_button(pagination, -1, len(tracklist)))
     for t in tracklist:
-        
+        plugin.log.info('fav: '+str(t['permalink'])+str(type(t['favorited']))+'/'+str(t['favorited']) )
         items.append({
-                'label': u'%s%s - %s' % ((u'[\u2665] ' if t['favorited']  else u''), t['user']['username'], t['title']),
+                'label': u'%s%s - %s' % ((u'[\u2665] ' if t.get('favorited', False)  else u''), t['user']['username'], t['title']),
                 'icon': t['artwork_url'],
                 'thumbnail': t['artwork_url'],
+                'info_type': 'music',
                 'info': {
                             'duration': t.get('duration', None),
+                            'date': t.get('created_at', None),
                             'artist': t['user']['username'],
                             'title': t['title'],
                             'genre': t.get('genre', None),
-                            'playcount': t.get('playback_count', None)
+                            'playcount': int(t.get('playback_count', None))
                          },
                 'context_menu': [
                                     show_user_context_item(t['user']['permalink']),
@@ -350,10 +364,14 @@ def add_pp(obj, page):
 
 
 def login():
-    if xbmcaddon.Addon().getSetting('login_enabled') == 'false':
+    if ADDON.getSetting('login_enabled') == 'false':
+        if logged_in():
+            result = api_call('logout/')
+            USER['data'] = None
+            plugin.log.info("Logging out: "+str(result))
         return
-    password = xbmcaddon.Addon().getSetting('password')
-    email = xbmcaddon.Addon().getSetting('email')
+    password = ADDON.getSetting('password')
+    email = ADDON.getSetting('email')
     if logged_in():
         return
     result = api_call('login/', rtype='POST', data={'email': email, 'password': password})
@@ -362,7 +380,7 @@ def login():
         plugin.log.info("login successful")
         USER['data'] = result
     else:
-        dialogbox(_('login_failed'))
+        notify(_('login_failed'))
 
 
 def logged_in():
