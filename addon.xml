@@ -11,13 +11,22 @@
   <extension point="xbmc.addon.metadata">
     <platform>all</platform>
     <language>en de</language>
-    <assets>
-        <icon>icon.png</icon>
-        <fanart>fanart.jpg</fanart>
-    </assets>
-    <summary lang="en">Summary for "Hearthis.at"</summary>
+    <license>GNU GENERAL PUBLIC LICENSE. Version 3, 29 June 2007</license>
+    <source>https://github.com/baranator/plugin.audio.hearthis_at/</source>
+
+    <summary lang="en">Listen to music on Hearthis.at</summary>
+    <summary lang="de">Höre Musik von Hearthis.at</summary>
     <description lang="en">Hearthis.at is a online audio distribution platform that enables its users to upload, record, promote, and share their originally-created sounds. This addon provides the most important features to access that content.</description>
     <description lang="de">Hearthis.at ist eine Online-Musikplattform, auf welcher Nutzer ihre Werke hochladen, aufnehmen, bewerben und teilen können. Dieses Addon erlaubt Zugriff auf die wichtigsten Funktionen der Plattform um diese Inhalte abzurufen.</description>
-    <disclaimer lang="en">Disclaimer for "Hearthis.at"</disclaimer>
+    <disclaimer lang="en">Use at own risk. Code may be faulty, clog your drain or kill your cat.</disclaimer>
+    <news>v0.1  (2017-07-03)
+- Initial release</news>
+    <assets>
+        <icon>icon.png</icon>
+        <screenshot>resources/screenshot-01.jpg</screenshot>
+        <screenshot>resources/screenshot-02.jpg</screenshot>
+        <screenshot>resources/screenshot-03.jpg</screenshot>
+        <fanart>fanart.jpg</fanart>
+    </assets>
   </extension>
 </addon>
