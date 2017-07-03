@@ -93,6 +93,18 @@ msgctxt "#30018"
 msgid "tracks"
 msgstr "Titel"
 
+msgctxt "#30019"
+msgid "Reshared tracks"
+msgstr "Geteilte Titel"
+
+msgctxt "#30020"
+msgid "Reshare track"
+msgstr "Titel teilen"
+
+msgctxt "#30021"
+msgid "Remove reshare"
+msgstr "Titel nicht mehr teilen"
+
 msgctxt "#30050"
 msgid "hearthis.at credentials"
 msgstr "hearthis.at Zugangsdaten"

@@ -38,6 +38,9 @@ STRINGS = {
         'add_follow'    : 30016,
         'rm_follow'     : 30017,
         'tracks'        : 30018,
+        'reshared'      : 30019,
+        'add_reshared'  : 30020,
+        'rm_reshared'   : 30021,
         'login_failed'  : 30055
 }
 
@@ -75,8 +78,8 @@ def api_call(path, params=None, rtype='GET', data=None, json=True):
     
 
 def list_users(userlist, pagination = None, first=False, pre=[], post=[]):
-    if isinstance(userlist, dict):
-        notify(_('no_elements'))
+    if isinstance(userlist, dict) or len(userlist) == 0:
+        plugin.notify(_('no_elements'))
         return None
     items = pre
     items.append(pn_button(pagination, -1, len(userlist)))
@@ -98,15 +101,21 @@ def list_users(userlist, pagination = None, first=False, pre=[], post=[]):
 
 
 def list_tracks(tracklist, pagination = None, first=False, pre=[], post=[]):
-    if isinstance(tracklist, dict):
-        notify(_('no_elements'))
+    if isinstance(tracklist, dict) or len(tracklist) == 0:
+        plugin.notify(_('no_elements'))
         return None
     items = pre
     items.append(pn_button(pagination, -1, len(tracklist)))
     for t in tracklist:
         plugin.log.info('fav: '+str(t['permalink'])+str(type(t['favorited']))+'/'+str(t['favorited']) )
+        
+        like_res = ''
+        if t.get('favorited', False):
+            like_res +=  u'\u2665'
+        if t.get('reshared', False):
+            like_res += u' \u00bb'
         items.append({
-                'label': u'%s%s - %s' % ((u'[\u2665] ' if t.get('favorited', False)  else u''), t['user']['username'], t['title']),
+                'label': u'%s%s - %s' % ((u'[%s] ' % (like_res) if like_res != ''  else u''), t['user']['username'], t['title']),
                 'icon': t['artwork_url'],
                 'thumbnail': t['artwork_url'],
                 'info_type': 'music',
@@ -120,7 +129,8 @@ def list_tracks(tracklist, pagination = None, first=False, pre=[], post=[]):
                          },
                 'context_menu': [
                                     show_user_context_item(t['user']['permalink']),
-                                    context_item_toggle('like', t['favorited'], {'user':t['user']['permalink'], 'trackid': t['permalink']})
+                                    context_item_toggle('like', t['favorited'], {'user':t['user']['permalink'], 'trackid': t['permalink']}),
+                                    context_item_toggle('reshared', t['reshared'], {'user':t['user']['permalink'], 'trackid': t['permalink']})
                                 ],
                 'path': plugin.url_for('play_track', trackid=t['permalink'], user=t['user']['permalink']),
                 'is_playable': True
@@ -176,7 +186,7 @@ def login():
         plugin.log.info("login successful")
         USER['data'] = result
     else:
-        notify(_('login_failed'))
+        plugin.notify(_('login_failed'))
 
 
 def logged_in():
@@ -213,6 +223,7 @@ def main_menu():
         items_private = [   
                 {'label': _('my_likes'), 'icon': get_image('likes.png'), 'path': plugin.url_for('show_users_likes_first', user=USER['data']['permalink'])},
                 {'label': _('following'), 'icon': get_image('following.png'), 'path': plugin.url_for('show_following_first', user=USER['data']['permalink'])},
+                {'label': _('reshared'), 'icon': get_image('reshared.png'), 'path': plugin.url_for('show_reshared_first', user=USER['data']['permalink'])},
                         ]
     else:
         items_private = []
@@ -247,6 +258,14 @@ def show_users_likes(user, page, first=False):
     return list_tracks(results, pagination, first)
 
 
+@plugin.route('/user/<user>/reshared', name='show_reshared_first', options={'page': '1', 'first': 'True'})
+@plugin.route('/user/<user>/reshared/<page>')
+def show_reshared(user, page, first=False):
+    results = api_call(user, add_pp({'type': 'reshares'}, page))    
+    pagination={'call': 'show_reshared', 'args':{'user': user, 'page': int(page)}}
+    return list_tracks(results, pagination, first)
+
+
 @plugin.route('/user/<user>/following', name='show_following_first', options={'page': '1', 'first': 'True'})
 @plugin.route('/user/<user>/following/<page>')
 def show_following(user, page, first=False):
@@ -263,7 +282,8 @@ def show_user(user, page, first=False):
     pagination={'call': 'show_user', 'args':{'user': user, 'page': int(page)}}
     selectors = [
                     {'label': '%s (%s)' % (_('playlists'), str(u['playlist_count'])), 'icon': get_image('playlist.png'), 'path': plugin.url_for('show_users_playlists_first', user=user)},
-                    {'label': '%s (%s)' % (_('likes'), str(u['likes_count'])), 'icon': get_image('likes.png'), 'path': plugin.url_for('show_users_likes_first', user=user)}
+                    {'label': '%s (%s)' % (_('likes'), str(u['likes_count'])), 'icon': get_image('likes.png'), 'path': plugin.url_for('show_users_likes_first', user=user)},
+                    {'label': _('reshared'), 'icon': get_image('reshared.png'), 'path': plugin.url_for('show_reshared_first', user=user)}
                 ]
     return list_tracks(results, pagination, first, pre=selectors)
 
@@ -338,7 +358,7 @@ def toggle_prop(prop):
     elif prop == 'follow':
         results = api_call(parms['user'][0]+'/follow')
         r = results['follow']
-    elif prop == 'reshare':
+    elif prop == 'reshared':
         results = api_call(parms['user'][0]+'/'+parms['trackid'][0]+'/reshare')
     plugin.log.info(str(results))
     #plugin.notify('set' if r else 'reset')
